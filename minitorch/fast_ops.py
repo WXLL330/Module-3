@@ -7,7 +7,7 @@ from numba import prange
 from numba import njit as _njit
 
 from .tensor_data import (
-    MAX_DIMS,
+    MAX_DIMS,  # noqa: F401
     broadcast_index,
     index_to_position,
     shape_broadcast,
@@ -30,6 +30,20 @@ Fn = TypeVar("Fn")
 
 
 def njit(fn: Fn, **kwargs: Any) -> Fn:
+    """Compile the given function in no-Python mode using Numba.
+
+    This decorator applies the ``numba.njit`` wrapper with inlining enabled. 
+    Any additional keyword arguments provided are passed to ``@numba.njit`` 
+    for further customization.
+
+    Args:
+        fn (Callable): The function to be compiled.
+        **kwargs: Additional arguments to configure the Numba JIT compiler.
+
+    Returns:
+        Callable: The JIT-compiled version of the function.
+
+    """
     return _njit(inline="always", **kwargs)(fn)  # type: ignore
 
 
@@ -169,7 +183,26 @@ def tensor_map(
         in_strides: Strides,
     ) -> None:
         # TODO: Implement for Task 3.1.
-        raise NotImplementedError("Need to implement for Task 3.1")
+        # raise NotImplementedError("Need to implement for Task 3.1")
+
+        # try:
+        #     shape_broadcast(in_shape, out_shape)
+        # except RuntimeError:
+        #     raise ValueError(
+        #         f"Shape can not be broadcast for {in_shape} and {out_shape}"
+        #     )
+        if np.array_equal(out_strides, in_strides) and np.array_equal(out_shape, in_shape):
+            for i in prange(len(out)):
+                out[i] = fn(in_storage[i])
+        else:
+            for i in prange(len(out)):
+                out_index: Index = np.zeros(len(out_shape), dtype=np.int32)
+                in_index: Index = np.zeros(len(in_shape), dtype=np.int32)
+                to_index(i, out_shape, out_index)
+                broadcast_index(out_index, out_shape, in_shape, in_index)
+                data = in_storage[index_to_position(in_index, in_strides)]
+                map_data = fn(data)
+                out[i] = map_data
 
     return njit(_map, parallel=True)  # type: ignore
 
@@ -209,7 +242,30 @@ def tensor_zip(
         b_strides: Strides,
     ) -> None:
         # TODO: Implement for Task 3.1.
-        raise NotImplementedError("Need to implement for Task 3.1")
+        # raise NotImplementedError("Need to implement for Task 3.1"
+        if (
+            np.array_equal(a_shape, b_shape) 
+            and np.array_equal(a_strides, b_strides)
+            and np.array_equal(a_shape, out_shape)
+            and np.array_equal(a_strides, out_strides)
+        ):
+            for i in prange(len(out)):
+                out[i] = fn(a_storage[i], b_storage[i])
+        else:
+            for i in prange(len(out)):
+                out_index: Index = np.zeros(len(out_shape), dtype=np.int32)
+                a_index: Index = np.zeros(len(a_shape), dtype=np.int32)
+                b_index: Index = np.zeros(len(b_shape), dtype=np.int32)
+                to_index(i, out_shape, out_index)
+                broadcast_index(out_index, out_shape, a_shape, a_index)
+                broadcast_index(out_index, out_shape, b_shape, b_index)
+                data_a = a_storage[index_to_position(a_index, a_strides)]
+                data_b = b_storage[index_to_position(b_index, b_strides)]
+                zip_data = fn(
+                    data_a,
+                    data_b,
+                )
+                out[i] = zip_data
 
     return njit(_zip, parallel=True)  # type: ignore
 
@@ -245,7 +301,16 @@ def tensor_reduce(
         reduce_dim: int,
     ) -> None:
         # TODO: Implement for Task 3.1.
-        raise NotImplementedError("Need to implement for Task 3.1")
+        # raise NotImplementedError("Need to implement for Task 3.1")
+        
+        for i in prange(len(out)):
+            out_index: Index = np.zeros(len(out_shape), dtype=np.int32)
+            to_index(i, out_shape, out_index)
+            acc = out[i]
+            a_pos = index_to_position(out_index, a_strides)
+            for j in prange(a_shape[reduce_dim]):    
+                acc = fn(acc, a_storage[a_pos + j * a_strides[reduce_dim]])
+            out[i] = acc
 
     return njit(_reduce, parallel=True)  # type: ignore
 

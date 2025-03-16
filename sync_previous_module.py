@@ -1,5 +1,4 @@
-"""
-Description:
+"""Description:
 Note: Make sure that both the new and old module files are in same directory!
 
 This script helps you sync your previous module works with current modules.
@@ -38,7 +37,7 @@ dest = sys.argv[2]
 # copy the files from source to destination
 try:
     for file in files_to_move:
-        print(f"Moving file : ", file)
+        print("Moving file : ", file)
         shutil.copy(
             os.path.join(grandparent_path, source, file),
             os.path.join(grandparent_path, dest, file),
