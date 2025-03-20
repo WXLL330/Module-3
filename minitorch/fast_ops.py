@@ -363,13 +363,35 @@ def _tensor_matrix_multiply(
 
     # TODO: Implement for Task 3.2.
     # raise NotImplementedError("Need to implement for Task 3.2")
-    # a_shape: (...,x,y), b_shape: (...,y,z), out_shape: (...,x,y) 
 
-    for n in prange(out_shape[0]): # a_shape[-2]
-        for i in range(a_shape[-2]):  # b_shape[-1]
-            for j in range(b_shape[-1]):
-                for k in range(b_shape[-2]):
-                    out[n*out_strides[0] + i*out_strides[-2] + j*out_strides[-1]] += a_storage[n*a_batch_stride + i*a_strides[-2] + k*a_strides[-1]] * b_storage[n*b_batch_stride + k*b_strides[-2] + j*b_strides[-1]]
+    # for n in prange(out_shape[0]): # a_shape[-2]
+    #     for i in range(a_shape[-2]):  # b_shape[-1]
+    #         for j in range(b_shape[-1]):
+    #             for k in range(b_shape[-2]):
+    #                 out[n*out_strides[0] + i*out_strides[-2] + j*out_strides[-1]] += a_storage[n*a_batch_stride + i*a_strides[-2] + k*a_strides[-1]] * b_storage[n*b_batch_stride + k*b_strides[-2] + j*b_strides[-1]]
+
+    for i in prange(len(out)):
+        out_index: Index = np.zeros(len(out_shape), dtype=np.int32)
+        to_index(i, out_shape, out_index)
+
+        a_out_index = out_index.copy()
+        a_out_index[-1] = 0
+        b_out_index = out_index.copy()
+        b_out_index[-2] = 0
+
+        a_start_index = np.zeros(len(a_shape), dtype=np.int32)
+        b_start_index = np.zeros(len(b_shape), dtype=np.int32)
+        broadcast_index(a_out_index, out_shape, a_shape, a_start_index)
+        broadcast_index(b_out_index, out_shape, b_shape, b_start_index)
+
+        a_start_pos = index_to_position(a_start_index, a_strides)
+        b_start_pos = index_to_position(b_start_index, b_strides)
+        acc = 0
+        a_col_stride = a_strides[-1]
+        b_row_stride = b_strides[-2]
+        for j in prange(a_shape[-1]):
+            acc += a_storage[a_start_pos + j * a_col_stride] * b_storage[b_start_pos + j * b_row_stride]
+        out[i] = acc
 
 tensor_matrix_multiply = njit(_tensor_matrix_multiply, parallel=True)
 assert tensor_matrix_multiply is not None
