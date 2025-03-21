@@ -241,11 +241,11 @@ def tensor_zip(
 
 
 def _sum_practice(out: Storage, a: Storage, size: int) -> None:
-    """This is a practice sum kernel to prepare for reduce.
+    r"""A practice sum kernel to prepare for reduce.
 
     Given an array of length $n$ and out of size $n // \text{blockDIM}$
     it should sum up each blockDim values into an out cell.
-
+    s
     $[a_1, a_2, ..., a_{100}]$
 
     |
@@ -270,10 +270,17 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
     # TODO: Implement for Task 3.3.
     # raise NotImplementedError("Need to implement for Task 3.3")
     cache[pos] = a[i] if i < size else 0.0
+    cuda.syncthreads()
 
-    if i < size:
-        out[i // BLOCK_DIM] += a[i]
+    stride = BLOCK_DIM // 2
+    while stride > 0:
+        if pos < stride:
+            cache[pos] += cache[pos + stride]
+        cuda.syncthreads()
+        stride //= 2
 
+    if pos == 0:
+        out[cuda.blockIdx.x] = cache[pos]
 
 jit_sum_practice = cuda.jit()(_sum_practice)
 
@@ -323,13 +330,33 @@ def tensor_reduce(
         pos = cuda.threadIdx.x
 
         # TODO: Implement for Task 3.3.
-        raise NotImplementedError("Need to implement for Task 3.3")
+        # raise NotImplementedError("Need to implement for Task 3.3")
 
+        to_index(out_pos, out_shape, out_index)
+        out_pos = index_to_position(out_index, out_strides)
+
+        a_index = out_index
+        a_index[reduce_dim] = pos
+        a_pos = index_to_position(a_index, a_strides)
+        cache[pos] = a_storage[a_pos] if pos < a_shape[reduce_dim] else reduce_value
+
+        cuda.syncthreads()
+
+        stride = BLOCK_DIM // 2
+        while stride > 0:
+            if pos < stride:
+                cache[pos] = fn(cache[pos], cache[pos + stride])
+            cuda.syncthreads()
+            stride //= 2
+        
+        if pos == 0 and out_pos < out_size:
+            out[out_pos] = cache[pos]
+        
     return jit(_reduce)  # type: ignore
 
 
 def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
-    """This is a practice square MM kernel to prepare for matmul.
+    """A practice square MM kernel to prepare for matmul.
 
     Given a storage `out` and two storage `a` and `b`. Where we know
     both are shape [size, size] with strides [size, 1].

@@ -31,8 +31,7 @@ UserStrides: TypeAlias = Sequence[int]
 
 
 def index_to_position(index: Index, strides: Strides) -> int:
-    """
-    Converts a multidimensional tensor `index` into a single-dimensional position in
+    """Converts a multidimensional tensor `index` into a single-dimensional position in
     storage based on strides.
 
     Args:
@@ -41,8 +40,8 @@ def index_to_position(index: Index, strides: Strides) -> int:
 
     Returns:
         Position in storage
+        
     """
-
     # TODO: Implement for Task 2.1.
     # assert len(index) == len(strides), f"len index:{len(index)} and len strides:{len(strides)} dismatch"
     position = 0
@@ -53,8 +52,7 @@ def index_to_position(index: Index, strides: Strides) -> int:
 
 
 def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
-    """
-    Convert an `ordinal` to an index in the `shape`.
+    """Convert an `ordinal` to an index in the `shape`.
     Should ensure that enumerating position 0 ... size of a
     tensor produces every index exactly once. It
     may not be the inverse of `index_to_position`.
@@ -66,15 +64,10 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
 
     """
     # TODO: Implement for Task 2.1.
-    strides = [1]  # 最后一个维度的步幅是 1
-    for i in range(len(shape) - 1, 0, -1):
-        strides.insert(0, strides[0] * shape[i])
-    
-    o = ordinal
-    for i, stride in enumerate(strides):
-        # np.append(out_index, ordinal // stride)
-        out_index[i] = o // stride
-        o = o % stride
+    for i in range(len(shape) - 1, -1, -1):
+        out_index[i] = ordinal % shape[i]
+        ordinal = ordinal // shape[i]
+
     # raise NotImplementedError("Need to implement for Task 2.1")
 
 
