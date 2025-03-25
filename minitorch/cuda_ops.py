@@ -388,7 +388,12 @@ def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
     """
     BLOCK_DIM = 32
     # TODO: Implement for Task 3.3.
-    raise NotImplementedError("Need to implement for Task 3.3")
+    # raise NotImplementedError("Need to implement for Task 3.3")
+
+    a_cache = cuda.shared.array(BLOCK_DIM, numba.float64)
+    b_cache = cuda.shared.array(BLOCK_DIM, numba.float64)
+
+
 
 
 jit_mm_practice = jit(_mm_practice)
