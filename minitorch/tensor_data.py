@@ -64,8 +64,10 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
 
     """
     # TODO: Implement for Task 2.1.
+    ordinal += 0
     for i in range(len(shape) - 1, -1, -1):
-        out_index[i] = ordinal % shape[i]
+        temp = ordinal % shape[i]
+        out_index[i] = temp
         ordinal = ordinal // shape[i]
 
     # raise NotImplementedError("Need to implement for Task 2.1")

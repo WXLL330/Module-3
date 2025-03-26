@@ -390,11 +390,21 @@ def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
     # TODO: Implement for Task 3.3.
     # raise NotImplementedError("Need to implement for Task 3.3")
 
-    a_cache = cuda.shared.array(BLOCK_DIM, numba.float64)
-    b_cache = cuda.shared.array(BLOCK_DIM, numba.float64)
+    a_cache = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), numba.float64)
+    b_cache = cuda.shared.array((BLOCK_DIM, BLOCK_DIM), numba.float64)
 
+    tx = cuda.threadIdx.x
+    ty = cuda.threadIdx.y
 
+    a_cache[tx, ty] = a[tx * size + ty] * (tx < size and ty < size)
+    b_cache[tx, ty] = b[tx * size + ty] * (tx < size and ty < size)
+    cuda.syncthreads()
 
+    if(tx < size and ty < size):
+        acc = 0
+        for i in range(size):
+            acc += a_cache[tx, i] * b_cache[i, ty]
+        out[tx * size + ty] = acc
 
 jit_mm_practice = jit(_mm_practice)
 
@@ -462,7 +472,31 @@ def _tensor_matrix_multiply(
     #    b) Copy into shared memory for b matrix
     #    c) Compute the dot produce for position c[i, j]
     # TODO: Implement for Task 3.4.
-    raise NotImplementedError("Need to implement for Task 3.4")
+    # raise NotImplementedError("Need to implement for Task 3.4")
+    
+    assert a_shape[-1] == b_shape[-2]
+    
+    acc = 0
+    a_storage_pos = batch*a_batch_stride + i*a_strides[-2] + pj*a_strides[-1]
+    b_storage_pos = batch*b_batch_stride + pi*b_strides[-2] + j*b_strides[-1]
+
+    for offset in range(0, a_shape[-1], BLOCK_DIM):
+        a_shared[pi, pj] = a_storage[a_storage_pos] * (i < a_shape[-2] and (pj + offset) < a_shape[-1])
+        b_shared[pi, pj] = b_storage[b_storage_pos] * ((pi + offset) < b_shape[-2] and j < b_shape[-1])
+
+        cuda.syncthreads()
+
+        a_storage_pos += BLOCK_DIM*a_strides[-1]
+        b_storage_pos += BLOCK_DIM*b_strides[-2]
+
+        for k in range(BLOCK_DIM):
+            acc += a_shared[pi, k] * b_shared[k, pj]
+        cuda.syncthreads()
+    
+    pos = batch*out_strides[0] + i*out_strides[1] + j*out_strides[2]
+    if i < out_shape[-2] and j < out_shape[-1]:    
+        out[pos] = acc
+        
 
 
 tensor_matrix_multiply = jit(_tensor_matrix_multiply)
