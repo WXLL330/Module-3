@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Iterable, List, Tuple
+from typing import Any, Iterable, Tuple
 
 from typing_extensions import Protocol
 
@@ -8,8 +8,7 @@ from typing_extensions import Protocol
 
 
 def central_difference(f: Any, *vals: Any, arg: int = 0, epsilon: float = 1e-6) -> Any:
-    r"""
-    Computes an approximation to the derivative of `f` with respect to one arg.
+    r"""Computes an approximation to the derivative of `f` with respect to one arg.
 
     See :doc:`derivative` or https://en.wikipedia.org/wiki/Finite_difference for more details.
 
@@ -21,6 +20,7 @@ def central_difference(f: Any, *vals: Any, arg: int = 0, epsilon: float = 1e-6) 
 
     Returns:
         An approximation of $f'_i(x_0, \ldots, x_{n-1})$
+
     """
     # TODO: Implement for Task 1.1.
     vals_plus = list(vals)
@@ -60,19 +60,19 @@ class Variable(Protocol):
 
 
 def topological_sort(variable: Variable) -> Iterable[Variable]:
-    """
-    Computes the topological order of the computation graph using DFS.
+    """Computes the topological order of the computation graph using DFS.
 
     Args:
         variable: The right-most variable
 
     Returns:
         Non-constant Variables in topological order starting from the right.
+
     """
     visited = []
     ordered_list = []
 
-    def dfs(v: Variable):
+    def dfs(v: Variable) -> None:
         if v.unique_id in visited or v.is_constant():
             return
         visited.append(v.unique_id)
@@ -85,8 +85,7 @@ def topological_sort(variable: Variable) -> Iterable[Variable]:
 
 
 def backpropagate(variable: Variable, deriv: Any) -> None:
-    """
-    Runs backpropagation on the computation graph in order to
+    """Runs backpropagation on the computation graph in order to
     compute derivatives for the leave nodes.
 
     Args:
@@ -94,6 +93,7 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
         deriv  : Its derivative that we want to propagate backward to the leaves.
 
     No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
+
     """
     # TODO: Implement for Task 1.4.
     ordered_list = topological_sort(variable)
@@ -112,15 +112,13 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
 
 @dataclass
 class Context:
-    """
-    Context class is used by `Function` to store information during the forward pass.
-    """
+    """Context class is used by `Function` to store information during the forward pass."""
 
     no_grad: bool = False
     saved_values: Tuple[Any, ...] = ()
 
     def save_for_backward(self, *values: Any) -> None:
-        "Store the given `values` if they need to be used during backpropagation."
+        """Store the given `values` if they need to be used during backpropagation."""
         if self.no_grad:
             return
         self.saved_values = values

@@ -4,14 +4,16 @@ import numba
 
 import minitorch
 
+import time
+
 datasets = minitorch.datasets
 FastTensorBackend = minitorch.TensorBackend(minitorch.FastOps)
 if numba.cuda.is_available():
     GPUBackend = minitorch.TensorBackend(minitorch.CudaOps)
 
 
-def default_log_fn(epoch, total_loss, correct, losses):
-    print("Epoch ", epoch, " loss ", total_loss, "correct", correct)
+def default_log_fn(epoch, total_loss, correct, losses, avg_time, total_time):
+    print("Epoch ", epoch, " loss ", total_loss, "correct", correct, "per-epoch avg time", avg_time, "total time", total_time)
 
 
 def RParam(*shape, backend):
@@ -25,12 +27,26 @@ class Network(minitorch.Module):
 
         # Submodules
         self.layer1 = Linear(2, hidden, backend)
-        self.layer2 = Linear(hidden, hidden, backend)
-        self.layer3 = Linear(hidden, 1, backend)
+        self.layer2 = Linear(hidden, 2*hidden, backend)
+        self.layer3 = Linear(2*hidden, 4*hidden, backend)
+        self.layer4 = Linear(4*hidden, 8*hidden, backend)
+        self.layer5 = Linear(8*hidden, 4*hidden, backend)
+        self.layer6 = Linear(4*hidden, 2*hidden, backend)
+        self.layer7 = Linear(2*hidden, hidden, backend)
+        self.layer8 = Linear(hidden, 1, backend)
 
     def forward(self, x):
         # TODO: Implement for Task 3.5.
-        raise NotImplementedError("Need to implement for Task 3.5")
+        # raise NotImplementedError("Need to implement for Task 3.5")
+        y = self.layer1.forward(x).relu()
+        y = self.layer2.forward(y).relu()
+        y = self.layer3.forward(y).relu()
+        y = self.layer4.forward(y).relu()
+        y = self.layer5.forward(y).relu()
+        y = self.layer6.forward(y).relu()
+        y = self.layer7.forward(y).relu()
+        y = self.layer8.forward(y).sigmoid()
+        return y
 
 
 class Linear(minitorch.Module):
@@ -44,7 +60,9 @@ class Linear(minitorch.Module):
 
     def forward(self, x):
         # TODO: Implement for Task 3.5.
-        raise NotImplementedError("Need to implement for Task 3.5")
+        # raise NotImplementedError("Need to implement for Task 3.5")
+        y = x @ self.weights.value + self.bias.value
+        return y
 
 
 class FastTrain:
@@ -65,7 +83,9 @@ class FastTrain:
         BATCH = 10
         losses = []
 
+        total_start_time = time.time()
         for epoch in range(max_epochs):
+            # epoch_start_time = time.time()
             total_loss = 0.0
             c = list(zip(data.X, data.y))
             random.shuffle(c)
@@ -76,18 +96,28 @@ class FastTrain:
                 X = minitorch.tensor(X_shuf[i : i + BATCH], backend=self.backend)
                 y = minitorch.tensor(y_shuf[i : i + BATCH], backend=self.backend)
                 # Forward
-
+                st = time.time()
                 out = self.model.forward(X).view(y.shape[0])
+                et = time.time()
+                print(f"forward cost: {et-st}s\n")
+
                 prob = (out * y) + (out - 1.0) * (y - 1.0)
                 loss = -prob.log()
+
+                st = time.time()
                 (loss / y.shape[0]).sum().view(1).backward()
+                et = time.time()
+                print(f"backward cost: {et-st}s\n")
 
                 total_loss = loss.sum().view(1)[0]
 
                 # Update
                 optim.step()
 
+            # epoch_cost_time = time.time() - epoch_start_time
             losses.append(total_loss)
+            avg_time_per_epoch = (time.time() - total_start_time) / (epoch + 1)
+
             # Logging
             if epoch % 10 == 0 or epoch == max_epochs:
                 X = minitorch.tensor(data.X, backend=self.backend)
@@ -95,7 +125,10 @@ class FastTrain:
                 out = self.model.forward(X).view(y.shape[0])
                 y2 = minitorch.tensor(data.y)
                 correct = int(((out.detach() > 0.5) == y2).sum()[0])
-                log_fn(epoch, total_loss, correct, losses)
+
+                total_time = time.time() - total_start_time
+
+                log_fn(epoch, total_loss, correct, losses, avg_time_per_epoch, total_time)
 
 
 if __name__ == "__main__":
@@ -125,4 +158,4 @@ if __name__ == "__main__":
 
     FastTrain(
         HIDDEN, backend=FastTensorBackend if args.BACKEND != "gpu" else GPUBackend
-    ).train(data, RATE)
+    ).train(data, RATE, max_epochs=1)
